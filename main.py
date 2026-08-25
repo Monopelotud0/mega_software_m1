@@ -39,13 +39,19 @@ def _parse_args() -> argparse.Namespace:
         type=str,
         help="Ruta al archivo de datos (CSV, Excel o Parquet).",
     )
-    parser.add_argument(
-        "--ai",
-        action="store_true",
-        default=False,
-        help="Activa el modo IA (LLM) durante la limpieza de la Fase 0.",
-    )
+    # Se remueve el flag --ai para que se pregunte en tiempo de ejecución
     return parser.parse_args()
+
+def _load_env() -> None:
+    """Carga manualmente las variables del archivo .env si existe."""
+    env_path = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, val = line.split("=", 1)
+                    os.environ[key.strip()] = val.strip()
 
 
 def _build_pipeline_id(filepath: str) -> str:
@@ -70,6 +76,17 @@ def _ask_task_type() -> str:
             return "regression"
         print("Opción no válida. Intente nuevamente.")
 
+def _ask_ai_mode() -> bool:
+    """Consulta si se desea habilitar el uso de IA (Kimi)."""
+    prompt = "¿Deseas habilitar el procesamiento con Inteligencia Artificial (Kimi)? (Selecciona 'n' para máxima privacidad / Zero-Trust) [s/n]: "
+    while True:
+        choice = input(prompt).strip().lower()
+        if choice in {"s", "si", "sí", "y", "yes"}:
+            return True
+        if choice in {"n", "no"}:
+            return False
+        print("Opción no válida. Intente nuevamente.")
+
 
 def _ask_text_column() -> str:
     """Solicita al usuario el nombre de la columna de texto."""
@@ -90,6 +107,7 @@ def _ask_autonomous_mode() -> bool:
 
 def main() -> None:
     """Punto de entrada principal del orquestador."""
+    _load_env()
     args = _parse_args()
     logger = setup_logger("MainOrchestrator")
     config = ConfigManager()
@@ -97,18 +115,20 @@ def main() -> None:
     try:
         logger.info("=" * 60)
         logger.info("Iniciando Mega Software de ML")
-        logger.info("Archivo: %s | Modo AI: %s", args.filepath, args.ai)
+        logger.info("Archivo: %s", args.filepath)
         logger.info("=" * 60)
 
+        ai_mode = _ask_ai_mode()
         is_autonomous = _ask_autonomous_mode()
-        logger.info("Modo de ejecución: %s", "Autónomo" if is_autonomous else "Interactivo")
+        
+        logger.info("Modo IA: %s | Modo de ejecución: %s", "Habilitado" if ai_mode else "Deshabilitado (Zero-Trust)", "Autónomo" if is_autonomous else "Interactivo")
 
         # ------------------------------------------------------------------
         # Paso 1: Fase 0 - Ingesta, limpieza y determinación de ruta
         # ------------------------------------------------------------------
         pipeline_id = _build_pipeline_id(args.filepath)
         ingestion = DataIngestionPipeline(pipeline_id=pipeline_id)
-        route, target_col = ingestion.execute(filepath=args.filepath, ai_mode=args.ai, autonomous=is_autonomous)
+        route, target_col = ingestion.execute(filepath=args.filepath, ai_mode=ai_mode, autonomous=is_autonomous)
 
         logger.info("Ruta determinada por Fase 0: %s | target: %s", route, target_col)
 

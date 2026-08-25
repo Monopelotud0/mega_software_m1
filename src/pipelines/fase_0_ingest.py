@@ -19,11 +19,9 @@ from src.pipelines.base_pipeline import BasePipeline
 
 # Imports para modo AI (lazy import dentro de orchestrate_cleaning)
 try:
-    from google import genai
-    from google.genai import types as genai_types
+    from openai import OpenAI
 except ImportError:  # pragma: no cover
-    genai = None  # type: ignore
-    genai_types = None  # type: ignore
+    OpenAI = None  # type: ignore
 
 try:
     from src.schemas.llm_models import ColumnRecommendation, MetadataResponse
@@ -565,7 +563,7 @@ class DataIngestionPipeline(BasePipeline):
             self.logger.info("Columnas eliminadas por recomendación LLM: %s", drop_cols)
 
     def _query_llm_for_cleaning(self, metadata: Dict[str, Any]) -> MetadataResponse:
-        """Consulta a Gemini para obtener recomendaciones de limpieza.
+        """Consulta a Kimi (Moonshot API) para obtener recomendaciones de limpieza.
 
         Args:
             metadata: Diccionario de metadatos extraídos.
@@ -576,41 +574,49 @@ class DataIngestionPipeline(BasePipeline):
         Raises:
             RuntimeError: Si no está configurada la API key o falla la llamada.
         """
-        if genai is None or genai_types is None:
-            raise RuntimeError("La librería google-genai no está instalada")
+        if OpenAI is None:
+            raise RuntimeError("La librería openai no está instalada")
 
-        api_key = os.getenv("GOOGLE_API_KEY")
+        api_key = os.getenv("MOONSHOT_API_KEY") or os.getenv("GOOGLE_API_KEY")
         if not api_key:
-            raise RuntimeError("La variable de entorno GOOGLE_API_KEY no está configurada")
+            raise RuntimeError("La variable de entorno MOONSHOT_API_KEY no está configurada")
 
-        client = genai.Client(api_key=api_key)
+        client = OpenAI(
+            api_key=api_key,
+            base_url="https://api.moonshot.cn/v1",
+        )
 
         prompt = (
             "Eres un asistente de preprocesamiento de datos. "
             "A continuación recibirás un JSON con metadatos de un dataset "
             "cuyas columnas están enmascaradas como Var_XX. "
-            "Devuelve una estrategia general y una lista de recomendaciones "
+            "Devuelve un JSON estrictamente válido que represente una estrategia general y una lista de recomendaciones "
             "por columna. Las acciones permitidas son: "
             "'impute_median', 'impute_mode', 'drop', 'scale', 'encode', 'keep'. "
             "También sugiere la ruta más adecuada: 'fase_1', 'fase_2' o 'fase_3'.\n\n"
-            f"{json.dumps(metadata, ensure_ascii=False, indent=2)}"
+            "Formato esperado del JSON:\n"
+            "{\n"
+            '  "overall_strategy": "tu estrategia",\n'
+            '  "column_recommendations": [{"column_name": "Var_01", "action": "keep", "reason": "motivo"}],\n'
+            '  "suggested_route": "fase_1"\n'
+            "}\n\n"
+            f"Metadatos:\n{json.dumps(metadata, ensure_ascii=False, indent=2)}"
         )
 
         try:
-            response = client.models.generate_content(
-                model="gemini-1.5-flash",
-                contents=prompt,
-                config=genai_types.GenerateContentConfig(
-                    response_schema=MetadataResponse,
-                    response_mime_type="application/json",
-                ),
+            response = client.chat.completions.create(
+                model="moonshot-v1-8k",
+                messages=[
+                    {"role": "system", "content": "Devuelve únicamente JSON. No incluyas backticks de markdown (```json)."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"}
             )
-            if response.parsed is not None:
-                return response.parsed
-            parsed = json.loads(response.text)
+            content = response.choices[0].message.content
+            parsed = json.loads(content)
             return MetadataResponse(**parsed)
         except Exception as exc:
-            self.logger.error("Error al consultar Gemini: %s", exc)
+            self.logger.error("Error al consultar Kimi: %s", exc)
             raise RuntimeError(f"Fallo la consulta al LLM: {exc}") from exc
 
     def orchestrate_cleaning(self, ai_mode: bool = False) -> None:
