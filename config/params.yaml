@@ -1,0 +1,12 @@
+system:
+  memory_limit_gb: 16
+  file_size_warning_mb: 1500
+  chunksize: 100000
+statistics:
+  p_value_threshold: 0.05
+  vif_threshold: 10.0
+  max_missing_pct: 0.60
+nlp:
+  umap_components: 5
+  hdbscan_min_cluster_size: 15
+  cosine_similarity_merge: 0.85

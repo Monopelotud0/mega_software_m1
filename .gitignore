@@ -1,0 +1,29 @@
+# Data & outputs
+data/
+logs/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment variables
+.env
+
+# Serialized models
+*.pkl
+*.joblib
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Poetry lock (optional, remove if you want reproducible builds)
+# poetry.lock
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
