@@ -583,7 +583,7 @@ class DataIngestionPipeline(BasePipeline):
 
         client = OpenAI(
             api_key=api_key,
-            base_url="https://api.moonshot.cn/v1",
+            base_url="https://api.moonshot.ai/v1",
         )
 
         prompt = (
@@ -605,7 +605,7 @@ class DataIngestionPipeline(BasePipeline):
 
         try:
             response = client.chat.completions.create(
-                model="moonshot-v1-8k",
+                model="kimi-k2.6",
                 messages=[
                     {"role": "system", "content": "Devuelve únicamente JSON. No incluyas backticks de markdown (```json)."},
                     {"role": "user", "content": prompt}
@@ -636,7 +636,7 @@ class DataIngestionPipeline(BasePipeline):
             raise RuntimeError(msg)
 
         if ai_mode:
-            self.logger.info("Orquestador en modo AI: consultando Gemini")
+            self.logger.info("Orquestador en modo AI: consultando Moonshot (Kimi)")
             metadata = self._extract_metadata_core()
             llm_response = self.safe_execute(self._query_llm_for_cleaning, metadata)
             self._apply_llm_recommendations(llm_response.column_recommendations)
