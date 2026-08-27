@@ -1,7 +1,7 @@
 """Esquemas Pydantic para interacciones estructuradas con LLMs.
 
 Define modelos de respuesta que se usan como ``response_schema`` en las APIs
-de Gemini (Google Generative AI) para forzar salidas tipadas y predecibles.
+de Kimi (Moonshot AI) para forzar salidas tipadas y predecibles.
 """
 
 from __future__ import annotations

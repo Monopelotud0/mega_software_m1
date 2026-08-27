@@ -623,7 +623,7 @@ class DataIngestionPipeline(BasePipeline):
         """Orquesta la limpieza estructural de forma determinista o con LLM.
 
         Args:
-            ai_mode: Si es ``True``, usa Gemini para recomendar pasos de
+            ai_mode: Si es ``True``, usa Kimi para recomendar pasos de
                 limpieza. Si es ``False`` (por defecto), aplica reglas
                 deterministas de privacidad máxima.
 
